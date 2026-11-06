@@ -1,0 +1,142 @@
+{
+  "schemaVersion": 1,
+  "id": "streamelements",
+  "displayName": "StreamElements",
+  "description": "StreamElements OAuth/JWT auth, realtime events, loyalty, alerts, overlay replacements, and automation nodes.",
+  "version": "0.1.0",
+  "minHostVersion": "0.0.0",
+  "entryAssembly": "Nyautomator.Module.StreamElements.dll",
+  "entryType": "Nyautomator.Modules.StreamElements.StreamElementsModule",
+  "capabilities": [
+    "runtime.integration",
+    "automation.nodes",
+    "dashboard.cards",
+    "settings.cards",
+    "icons",
+    "mcp.tools"
+  ],
+  "assetsRoot": "assets",
+  "contributions": {
+    "icons": [
+      {
+        "id": "streamelements",
+        "path": "icons/streamelements.svg"
+      }
+    ],
+    "dashboardCards": [
+      {
+        "id": "status",
+        "title": "StreamElements",
+        "icon": "streamelements",
+        "renderer": "status-card",
+        "statusSource": "/modules/streamelements/api/status",
+        "actions": [
+          {
+            "id": "connect",
+            "label": "Connect",
+            "method": "POST",
+            "path": "/modules/streamelements/api/authorize"
+          },
+          {
+            "id": "realtime",
+            "label": "Connect Realtime",
+            "method": "POST",
+            "path": "/modules/streamelements/api/realtime/connect"
+          },
+          {
+            "id": "disconnect",
+            "label": "Disconnect",
+            "method": "POST",
+            "path": "/modules/streamelements/api/disconnect"
+          }
+        ],
+        "order": 630
+      }
+    ],
+    "settingsCards": [
+      {
+        "id": "settings",
+        "title": "StreamElements",
+        "icon": "streamelements",
+        "renderer": "asset-frame",
+        "configPath": "/modules/streamelements/config",
+        "schemaPath": "config/streamelements.schema.json",
+        "statusSource": "/modules/streamelements/api/status",
+        "assetPath": "settings/settings.html",
+        "auth": {
+          "title": "StreamElements",
+          "description": "StreamElements OAuth client, legacy JWT, and realtime socket.",
+          "assetPath": "settings/settings.html",
+          "fields": [
+            "clientSecret",
+            "jwt"
+          ],
+          "metadata": {
+            "saveOnHostSave": true
+          }
+        },
+        "metadata": {
+          "placement": "auth",
+          "saveOnHostSave": true
+        },
+        "order": 630
+      }
+    ],
+    "configurations": [
+      {
+        "id": "options",
+        "schemaPath": "config/streamelements.schema.json",
+        "defaults": {
+          "scopes": [
+            "realtime:socket"
+          ],
+          "realtimeEnabled": true
+        }
+      }
+    ],
+    "mcpTools": [
+      {
+        "id": "status",
+        "name": "streamelements.status",
+        "title": "Get StreamElements Status",
+        "description": "Read StreamElements account link and realtime socket status.",
+        "method": "GET",
+        "path": "/modules/streamelements/api/status",
+        "requiresApproval": false,
+        "order": 630
+      },
+      {
+        "id": "realtime-connect",
+        "name": "streamelements.realtime.connect",
+        "title": "Connect StreamElements Realtime",
+        "description": "Connect the StreamElements realtime event socket.",
+        "method": "POST",
+        "path": "/modules/streamelements/api/realtime/connect",
+        "requiresApproval": true,
+        "order": 631
+      },
+      {
+        "id": "realtime-disconnect",
+        "name": "streamelements.realtime.disconnect",
+        "title": "Disconnect StreamElements Realtime",
+        "description": "Disconnect the StreamElements realtime event socket.",
+        "method": "POST",
+        "path": "/modules/streamelements/api/realtime/disconnect",
+        "requiresApproval": true,
+        "order": 632
+      }
+    ],
+    "automationAssemblies": [
+      {
+        "id": "nodes",
+        "path": "Nyautomator.Automation.StreamElements.dll"
+      }
+    ],
+    "runtimeParticipants": [
+      {
+        "id": "runtime",
+        "typeName": "Nyautomator.Modules.StreamElements.StreamElementsRuntimeParticipant, Nyautomator.Module.StreamElements"
+      }
+    ]
+  }
+}

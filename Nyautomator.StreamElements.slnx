@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Nyautomator.Automation.StreamElements/Nyautomator.Automation.StreamElements.csproj" />
+    <Project Path="src/Nyautomator.Module.StreamElements/Nyautomator.Module.StreamElements.csproj" />
+    <Project Path="src/Nyautomator.StreamElements/Nyautomator.StreamElements.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Nyautomator.Module.StreamElements.Tests/Nyautomator.Module.StreamElements.Tests.csproj" />
+  </Folder>
+</Solution>

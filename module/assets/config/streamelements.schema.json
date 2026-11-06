@@ -1,0 +1,27 @@
+{
+  "type": "object",
+  "properties": {
+    "clientId": { "type": ["string", "null"], "title": "Client ID" },
+    "clientSecret": {
+      "type": ["string", "null"],
+      "title": "Client Secret",
+      "format": "password",
+      "writeOnly": true,
+      "x-secret": true,
+      "metadata": { "secret": true }
+    },
+    "redirectUri": { "type": ["string", "null"], "title": "Redirect URI" },
+    "scopes": { "type": ["array", "null"], "items": { "type": "string" } },
+    "authBrowserPath": { "type": ["string", "null"], "title": "Authorization browser path" },
+    "jwt": {
+      "type": ["string", "null"],
+      "title": "Legacy JWT",
+      "format": "password",
+      "writeOnly": true,
+      "x-secret": true,
+      "metadata": { "secret": true }
+    },
+    "realtimeEnabled": { "type": ["boolean", "null"], "title": "Connect realtime socket" }
+  },
+  "additionalProperties": false
+}

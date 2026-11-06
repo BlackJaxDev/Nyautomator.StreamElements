@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>StreamElements Settings</title>
+  <style>
+    :root { color-scheme: dark light; font-family: Inter, Segoe UI, sans-serif; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: transparent; color: inherit; }
+    .shell { display: grid; gap: 10px; padding: 12px; }
+    p { margin: 0; font-size: 12px; opacity: .78; line-height: 1.45; }
+    a { color: #38bdf8; }
+    code { font-size: 11px; }
+    label.field { display: grid; gap: 4px; font-size: 12px; opacity: .9; }
+    .row { display: flex; gap: 8px; align-items: center; }
+    input[type="text"], input[type="password"], input[type="number"] { flex: 1; min-width: 0; width: 100%; border: 1px solid color-mix(in srgb, currentColor 24%, transparent); border-radius: 6px; background: color-mix(in srgb, currentColor 8%, transparent); color: inherit; padding: 7px 9px; font: inherit; }
+    .check { display: flex; gap: 8px; align-items: center; font-size: 12px; }
+    fieldset { border: 1px solid color-mix(in srgb, currentColor 18%, transparent); border-radius: 8px; padding: 8px 10px; display: grid; gap: 6px; margin: 0; }
+    legend { font-size: 12px; opacity: .85; padding: 0 4px; }
+    .scope { display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; align-items: start; font-size: 12px; }
+    .scope small { grid-column: 2; opacity: .65; }
+    .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    button { border: 1px solid #0891b2; border-radius: 6px; background: #0891b2; color: white; padding: 7px 10px; font: inherit; cursor: pointer; }
+    button.secondary { background: transparent; color: inherit; border-color: color-mix(in srgb, currentColor 30%, transparent); }
+    button.danger { background: transparent; color: #f87171; border-color: #f87171; }
+    button:disabled { opacity: .55; cursor: not-allowed; }
+    .status { font-size: 12px; padding: 8px 10px; border-radius: 8px; background: color-mix(in srgb, currentColor 7%, transparent); }
+    .status.ok { color: #4ade80; }
+    .message { min-height: 18px; font-size: 12px; opacity: .85; }
+    .message.error { color: #f87171; }
+  </style>
+</head>
+<body>
+  <div class="shell" id="shell">
+    <p id="intro"></p>
+    <form id="form" autocomplete="off" class="shell" style="padding:0"></form>
+    <div class="status" id="status">Checking status…</div>
+    <div class="actions">
+      <button type="button" id="save">Save</button>
+      <button type="button" id="connect" class="secondary">Connect</button>
+      <button type="button" id="disconnect" class="danger">Disconnect</button>
+    </div>
+    <div class="message" id="message"></div>
+  </div>
+  <script>
+    const MODULE_ID = 'streamelements';
+    const ASSET_PATH = 'settings/settings.html';
+    const DISPLAY_NAME = 'StreamElements';
+    const INTRO_HTML = "Connect Nyautomator to StreamElements for realtime events, loyalty, alerts, and overlay data. Create an OAuth app in the <a href=\"https://dev.streamelements.com/\" target=\"_blank\" rel=\"noopener noreferrer\">StreamElements developer portal</a>, or paste a legacy JWT from your StreamElements dashboard (Account &gt; Channels &gt; Show secrets).";
+    const FIELDS = [
+      {
+        "key": "clientId",
+        "label": "Client ID",
+        "placeholder": "StreamElements Client ID"
+      },
+      {
+        "key": "clientSecret",
+        "label": "Client Secret",
+        "secret": true,
+        "placeholder": "StreamElements Client Secret"
+      },
+      {
+        "key": "redirectUri",
+        "label": "Redirect URI",
+        "placeholder": "Leave blank to use the Nyautomator callback"
+      },
+      {
+        "key": "scopes",
+        "label": "Scopes",
+        "type": "scopes"
+      },
+      {
+        "key": "authBrowserPath",
+        "label": "Authorization browser (optional)",
+        "placeholder": "Leave blank to use the system default browser"
+      },
+      {
+        "key": "jwt",
+        "label": "Legacy JWT (optional)",
+        "secret": true,
+        "placeholder": "Used when no OAuth account is linked",
+        "help": "The JWT is only used when OAuth is not linked, or as a fallback for the realtime socket."
+      },
+      {
+        "key": "realtimeEnabled",
+        "label": "Connect the realtime event socket while the runtime is running",
+        "type": "checkbox",
+        "default": true
+      }
+    ];
+    const KNOWN_SCOPES = [
+      {
+        "value": "channel:read",
+        "description": "Read channel information (default)"
+      },
+      {
+        "value": "tips:read",
+        "description": "Read your tips"
+      },
+      {
+        "value": "tips:write",
+        "description": "Create, modify, and delete tips"
+      },
+      {
+        "value": "activities:read",
+        "description": "Read your activities"
+      },
+      {
+        "value": "activities:write",
+        "description": "Create activities"
+      },
+      {
+        "value": "loyalty:read",
+        "description": "Read loyalty settings and the leaderboard"
+      },
+      {
+        "value": "loyalty:write",
+        "description": "Update loyalty settings and the leaderboard"
+      },
+      {
+        "value": "overlays:read",
+        "description": "Read overlays"
+      },
+      {
+        "value": "overlays:write",
+        "description": "Update and create overlays"
+      },
+      {
+        "value": "bot:read",
+        "description": "Read timers, commands, spam filters and modules"
+      },
+      {
+        "value": "bot:write",
+        "description": "Create and update timers, commands, spam filters and modules"
+      }
+    ];
+    const CONFIG_URL = `/modules/${MODULE_ID}/config`;
+    const API = `/modules/${MODULE_ID}/api`;
+    const REDACTED = '[redacted]';
+
+    const $ = (id) => document.getElementById(id);
+    let config = {};
+
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
+    }
+
+    function reportFrameHeight() {
+      const height = $('shell').getBoundingClientRect().height || document.body.scrollHeight;
+      window.parent?.postMessage({ type: 'nyautomator:module-frame-height', moduleId: MODULE_ID, assetPath: ASSET_PATH, height: height + 8 }, window.location.origin);
+    }
+
+    function setMessage(text, isError) {
+      $('message').textContent = text || '';
+      $('message').classList.toggle('error', !!isError);
+      reportFrameHeight();
+    }
+
+    async function readJson(res) {
+      try { return await res.json(); } catch { return null; }
+    }
+
+    function renderForm() {
+      const parts = [];
+      for (const field of FIELDS) {
+        const value = config[field.key];
+        if (field.type === 'checkbox') {
+          parts.push(`<label class="check"><input type="checkbox" data-key="${field.key}" ${(value ?? field.default) ? 'checked' : ''}> ${escapeHtml(field.label)}</label>`);
+        } else if (field.type === 'scopes') {
+          const selected = new Set(Array.isArray(value) ? value : []);
+          const known = new Set(KNOWN_SCOPES.map(scope => scope.value));
+          const custom = [...selected].filter(scope => !known.has(scope));
+          parts.push(`<fieldset><legend>${escapeHtml(field.label)}</legend>${KNOWN_SCOPES.map(scope => `
+            <label class="scope"><input type="checkbox" data-scope="${escapeHtml(scope.value)}" ${selected.has(scope.value) ? 'checked' : ''}>
+              <span>${escapeHtml(scope.value)}</span><small>${escapeHtml(scope.description)}</small></label>`).join('')}
+            <label class="field">Additional scopes (space separated)<input type="text" data-custom-scopes value="${escapeHtml(custom.join(' '))}"></label>
+          </fieldset>`);
+        } else if (field.secret) {
+          const stored = !!value;
+          parts.push(`<label class="field">${escapeHtml(field.label)}
+            <span class="row"><input type="password" data-key="${field.key}" data-secret="true" data-stored="${stored}" placeholder="${stored ? 'Saved (hidden). Enter a new value to replace it.' : escapeHtml(field.placeholder || '')}">
+            <button type="button" class="secondary" data-toggle="${field.key}">Show</button></span></label>`);
+        } else {
+          parts.push(`<label class="field">${escapeHtml(field.label)}<input type="${field.type === 'number' ? 'number' : 'text'}" data-key="${field.key}" value="${escapeHtml(value ?? field.default ?? '')}" placeholder="${escapeHtml(field.placeholder || '')}"></label>`);
+        }
+        if (field.help)
+          parts.push(`<p>${field.help}</p>`);
+      }
+      $('form').innerHTML = parts.join('');
+      reportFrameHeight();
+    }
+
+    function collectConfig() {
+      const next = { ...config };
+      for (const field of FIELDS) {
+        if (field.type === 'scopes') {
+          const scopes = [...$('form').querySelectorAll('[data-scope]')].filter(el => el.checked).map(el => el.dataset.scope);
+          const custom = ($('form').querySelector('[data-custom-scopes]')?.value || '').split(/[\s,]+/).map(s => s.trim()).filter(Boolean);
+          next[field.key] = [...new Set([...scopes, ...custom])];
+          continue;
+        }
+        const input = $('form').querySelector(`[data-key="${field.key}"]`);
+        if (!input) continue;
+        if (field.type === 'checkbox') {
+          next[field.key] = input.checked;
+        } else if (field.secret) {
+          const typed = input.value.trim();
+          next[field.key] = typed || (input.dataset.stored === 'true' ? REDACTED : '');
+        } else if (field.type === 'number') {
+          next[field.key] = input.value === '' ? null : Number(input.value);
+        } else {
+          const typed = input.value.trim();
+          next[field.key] = typed || null;
+        }
+      }
+      return next;
+    }
+
+    async function loadConfig() {
+      const res = await fetch(CONFIG_URL, { cache: 'no-store' });
+      config = (await readJson(res)) || {};
+      renderForm();
+    }
+
+    async function saveConfig() {
+      const res = await fetch(CONFIG_URL, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(collectConfig())
+      });
+      const body = await readJson(res);
+      if (!res.ok)
+        throw new Error(body?.error || 'Save failed.');
+      await loadConfig();
+    }
+
+    async function loadStatus() {
+      try {
+        const res = await fetch(`${API}/status`, { cache: 'no-store' });
+        const status = await readJson(res) || {};
+        const account = status.displayName || status.accountLogin || status.account?.displayName || status.account?.login;
+        const parts = [status.connected ? `Connected${account ? ` as ${account}` : ''}` : 'Not connected'];
+        if (status.scope) parts.push(`(${status.scope})`);
+        if (status.updatedAtUtc) parts.push(`· updated ${new Date(status.updatedAtUtc).toLocaleString()}`);
+        if (!status.connected && status.message) parts.push(`· ${status.message}`);
+        $('status').textContent = parts.join(' ');
+        $('status').classList.toggle('ok', !!status.connected);
+        $('disconnect').disabled = !status.connected;
+      } catch (err) {
+        $('status').textContent = `Status unavailable: ${err.message}`;
+      }
+      reportFrameHeight();
+    }
+
+    async function run(button, action) {
+      const buttons = ['save', 'connect', 'disconnect'].map($);
+      buttons.forEach(b => b.disabled = true);
+      try {
+        await action();
+      } catch (err) {
+        setMessage(err.message, true);
+      } finally {
+        buttons.forEach(b => b.disabled = false);
+        await loadStatus();
+      }
+    }
+
+    $('save').addEventListener('click', () => run('save', async () => {
+      await saveConfig();
+      setMessage('Saved.');
+    }));
+
+    $('connect').addEventListener('click', () => run('connect', async () => {
+      await saveConfig();
+      setMessage(`Opening ${DISPLAY_NAME} authorization in your browser…`);
+      const res = await fetch(`${API}/authorize`, { method: 'POST' });
+      const body = await readJson(res);
+      if (!res.ok || body?.success === false)
+        throw new Error(body?.message || body?.error || `${DISPLAY_NAME} authorization failed.`);
+      setMessage(body?.message || `${DISPLAY_NAME} authorized.`);
+    }));
+
+    $('disconnect').addEventListener('click', () => run('disconnect', async () => {
+      const res = await fetch(`${API}/disconnect`, { method: 'POST' });
+      const body = await readJson(res);
+      if (!res.ok || body?.success === false)
+        throw new Error(body?.message || body?.error || `Failed to disconnect ${DISPLAY_NAME}.`);
+      setMessage(body?.message || `${DISPLAY_NAME} disconnected.`);
+    }));
+
+    $('form').addEventListener('click', event => {
+      const key = event.target?.dataset?.toggle;
+      if (!key) return;
+      const input = $('form').querySelector(`[data-key="${key}"]`);
+      const hidden = input.type === 'password';
+      input.type = hidden ? 'text' : 'password';
+      event.target.textContent = hidden ? 'Hide' : 'Show';
+    });
+
+    window.addEventListener('message', async event => {
+      if (event.origin !== window.location.origin || event.data?.type !== 'nyautomator:module-settings-save')
+        return;
+      let ok = true;
+      let error = null;
+      try {
+        await saveConfig();
+      } catch (err) {
+        ok = false;
+        error = err.message;
+        setMessage(err.message, true);
+      }
+      event.source?.postMessage({ type: 'nyautomator:module-settings-save-result', requestId: event.data.requestId, moduleId: MODULE_ID, ok, error }, window.location.origin);
+    });
+
+    $('intro').innerHTML = INTRO_HTML;
+    Promise.all([loadConfig(), loadStatus()]).catch(err => setMessage(err.message, true));
+    window.addEventListener('load', reportFrameHeight);
+    if ('ResizeObserver' in window)
+      new ResizeObserver(reportFrameHeight).observe($('shell'));
+  </script>
+</body>
+</html>
