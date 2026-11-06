@@ -12,6 +12,7 @@
     "automation.nodes",
     "dashboard.cards",
     "settings.cards",
+    "graph.templates",
     "icons",
     "mcp.tools"
   ],
@@ -92,6 +93,28 @@
           ],
           "realtimeEnabled": true
         }
+      }
+    ],
+    "graphStepPresets": [
+      {
+        "id": "stream-elements-alert",
+        "type": "StreamElements.Reaction.Alert",
+        "name": "Trigger StreamElements Alert",
+        "config": {
+          "Message": ""
+        },
+        "messageParam": "Message",
+        "order": 600
+      },
+      {
+        "id": "stream-elements-announcement",
+        "type": "StreamElements.Reaction.Announcement",
+        "name": "Send StreamElements Announcement",
+        "config": {
+          "Message": ""
+        },
+        "messageParam": "Message",
+        "order": 601
       }
     ],
     "mcpTools": [
